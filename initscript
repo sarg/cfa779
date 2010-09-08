@@ -1,0 +1,50 @@
+#! /bin/sh
+### BEGIN INIT INFO
+# Provides:          cfa779-daemon
+# Required-Start:    none
+# Required-Stop:     none
+# Default-Start:     1 2 3 4 5
+# Default-Stop:      0 6
+# Short-Description: Start/stop LCD display
+# Description:
+### END INIT INFO
+
+NETDOWN=yes
+
+PATH=/sbin:/usr/sbin:/bin:/usr/bin
+DAEMON=/root/d.pl
+NAME="cfa779-daemon"
+DESC="cfa779-daemon"
+
+. /lib/lsb/init-functions
+
+test -x $DAEMON || exit 0
+
+case "$1" in
+  start)
+	echo -n "Starting $DESC: "
+	start-stop-daemon --start --quiet --background --make-pidfile --pidfile /var/run/lcdd.pid\
+		--exec $DAEMON
+	echo "$NAME."
+	;;
+  stop)
+	echo -n "Stopping $DESC: "
+	start-stop-daemon --stop --oknodo --quiet \
+		--pidfile /var/run/lcdd.pid
+	echo "$NAME."
+	[ -f /var/run/lcdd.pid ] && rm /var/run/lcdd.pid
+	test "$(/sbin/runlevel)" = "N 0" && /sbin/rmmod cfa779
+	;;
+  restart|force-reload)
+	echo -n "Restarting $DESC: "
+	$0 stop
+	sleep 1
+	$0 start
+	;;
+  *)
+	echo "Usage: $0 start|stop" >&2
+	exit 3
+	;;
+esac
+
+exit 0

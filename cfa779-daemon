@@ -1,0 +1,128 @@
+#!/usr/bin/env perl
+
+use strict;
+use warnings;
+use AnyEvent;
+use Data::Dumper;
+use Config;
+use IO::File;
+use Net::Ifconfig::Wrapper;
+
+$0 = 'cfa779-daemon';
+
+my $struct_len = 
+    ($Config{longsize} * 2) +   # input_event.time (struct timeval)
+    ($Config{i16size} * 2) +    # input_event.type, input_event.code
+    ($Config{i32size});
+
+my $dev = '/sys/bus/i2c/devices/0-0020/';
+
+my $done = AnyEvent->condvar;
+
+my $menu = [
+    { name => "IP",
+      cb => sub { 
+            my $ifaces = Net::Ifconfig::Wrapper::Ifconfig('list','','','');
+            my $ip = 'none';
+            if ($ifaces->{ppp0}) {
+                ($ip) = keys(%{$ifaces->{ppp0}{inet}});
+            }
+            return [ "IP:", $ip ];
+        }
+    },
+    { name => "Shutdown", 
+      cb => sub { 
+            `shutdown -h now`;
+            return [ "Going", "Down" ];
+        }, 
+    },
+    { name => "Reboot", 
+      cb => sub { 
+            `shutdown -r now`;
+            return [ "Going", "Reboot" ];
+        },
+    },
+    { name => "Exit",
+      cb => sub {
+            $done->send;
+            return [ "Bye", "bye" ];
+        },
+    }
+];
+my $menu_active = 0;
+
+sub dev_set {
+    my ($k, $v) = @_;
+
+    open F, '>' . $dev . $k;
+    print F $v;
+    close F;
+}
+
+sub lcd_set {
+    my ($ln1, $ln2) = @_;
+
+    for ( [ 'line1', $ln1 ], [ 'line2', $ln2 ] ) {
+        if ($_->[1]) {
+            dev_set($_->[0], $_->[1]);
+        }
+    }
+}
+
+sub redraw_lcd {
+    if ($menu_active+1 == scalar(@$menu)) {
+        lcd_set(
+            $menu->[$menu_active-1]->{name}, 
+            $menu->[$menu_active]->{name}
+        );
+        dev_set('cursor_position', '1 15');
+    } else {
+        lcd_set(
+            $menu->[$menu_active]->{name}, 
+            $menu->[$menu_active+1]->{name}
+        );
+        dev_set('cursor_position', '0 15');
+    }
+}
+
+my $fh = IO::File->new("< /dev/input/event1");
+my $wait_for_input = AnyEvent->io (
+    fh   => $fh,
+    poll => "r",
+    cb   => sub {
+        my $buffer;
+        sysread($fh, $buffer, $struct_len);
+
+        my ( $sec, $usec, $type, $code, $value ) = 
+            unpack( 'L!L!S!S!i!', $buffer );
+        my $event = {
+            tv_sec  => $sec,
+            tv_usec => $usec,
+            type    => $type,
+            code    => $code,
+            value   => $value,
+        };
+
+        return if $value == 0; # release
+
+        if ($code == 103) { # up
+            $menu_active-- if ($menu_active > 0);
+            redraw_lcd();
+        } elsif ($code == 108) { # down
+            $menu_active++ if ($menu_active+1 < scalar(@$menu));
+            redraw_lcd();
+        } elsif ($code == 106) { # right
+        } elsif ($code == 105) { # left
+        } elsif ($code == 28) { # enter
+            my ($ln1, $ln2) = @{ $menu->[$menu_active]->{cb}->() };
+            lcd_set($ln1, $ln2);
+        }
+        # print "Got $sec $usec $code $type $value\n";
+        # print scalar(@$menu),"\n";
+    }
+);
+
+redraw_lcd();
+dev_set('cursor_style', 1);
+
+$done->recv;
