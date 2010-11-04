@@ -1,0 +1,36 @@
+#!/bin/bash
+# install module to dkms, build a .deb package, uninstall module; 
+# requires dkms
+# author: Kobelkov S.
+# license: GPL
+
+NAME=cfa779
+VERSION=0.0.1
+
+dkms_ver=`grep PACKAGE_VERSION= dkms.conf | sed 's/PACKAGE_VERSION=//' | sed 's/"//g'`
+if [ $VERSION != $dkms_ver ]; then
+  echo "Version $VERSION does not agree with $dkms_ver in dkms.conf"
+  exit
+fi
+
+if [ `whoami` != "root" ]; then 
+  echo "Script requires root privileges to run, trying to restart using sudo"
+  exec sudo $0
+fi
+
+USRC=/usr/src/$NAME-$VERSION
+mkdir -p $USRC/$NAME-dkms-mkdeb
+cp -r /etc/dkms/template-dkms-mkdeb/* $USRC/$NAME-dkms-mkdeb
+cat /etc/dkms/template-dkms-mkdeb/debian/postinst | sed 's/CVERSION=.*/CVERSION=MODULE_VERSION/' > $USRC/$NAME-dkms-mkdeb/debian/postinst
+cp Makefile $USRC
+cp cfa779.c $USRC
+cp dkms.conf $USRC
+dkms add -m $NAME -v $VERSION
+dkms build -m $NAME -v $VERSION
+dkms install -m $NAME -v $VERSION
+dkms mkdeb -m $NAME -v $VERSION --source-only
+cp /var/lib/dkms/$NAME/$VERSION/deb/*.deb ./
+
+dkms uninstall -m $NAME -v $VERSION
+dkms remove -m $NAME -v $VERSION --all
+rm -rf $USRC
