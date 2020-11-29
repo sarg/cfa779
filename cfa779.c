@@ -58,8 +58,6 @@ MODULE_LICENSE ("GPL");
 
 static const unsigned short normal_i2c[] = { 0x20, I2C_CLIENT_END };
 
-I2C_CLIENT_INSMOD_1 (cfa779);
-
 /* ---------------------------------------------------------------------*/
 
 /* Each client has this additional data */
