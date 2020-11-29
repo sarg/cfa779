@@ -98,7 +98,7 @@ static struct i2c_driver cfa779_driver = {
     .probe = cfa779_probe,
     .remove = cfa779_remove,
 
-    .address_data = &addr_data,
+    .address_list = normal_i2c,
     .detect = cfa779_detect
 };
 
