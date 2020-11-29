@@ -77,7 +77,7 @@ struct cfa779_data
 static int cfa779_probe (struct i2c_client *client,
                          const struct i2c_device_id *id);
 static int cfa779_remove (struct i2c_client *client);
-static int cfa779_detect (struct i2c_client *client, int kind,
+static int cfa779_detect (struct i2c_client *client,
                           struct i2c_board_info *board_info);
 
 struct i2c_device_id cfa779_idtable[] = {
@@ -467,7 +467,7 @@ lcd_send_packet (struct i2c_client *client, u8 idx, int len, char *data)
 
 
 static int
-cfa779_detect (struct i2c_client *new_client, int kind,
+cfa779_detect (struct i2c_client *new_client,
                struct i2c_board_info *info)
 {
     struct i2c_adapter *adapter = new_client->adapter;
@@ -477,26 +477,12 @@ cfa779_detect (struct i2c_client *new_client, int kind,
         return -ENODEV;
 
     /*
-     * Now we do the remaining detection. A negative kind means that
-     * the driver was loaded with no force parameter (default), so we
-     * must both detect and identify the chip. A zero kind means that
-     * the driver was loaded with the force parameter, the detection
-     * step shall be skipped. A positive kind means that the driver
-     * was loaded with the force parameter and a given kind of chip is
-     * requested, so both the detection and the identification steps
-     * are skipped.
+     * Now we must both detect and identify the chip.
      */
 
-    if (kind == 0)
-        kind = cfa779;
-
-    if (kind < 0)
-      {                         /* detection and identification */
-          lcd_send_packet (new_client, 0, 0, NULL);
-          if (lcd_check_reply (new_client, 0, 0, NULL) == 0)
-              return -ENODEV;
-          kind = cfa779;
-      }
+    lcd_send_packet (new_client, 0, 0, NULL);
+    if (lcd_check_reply (new_client, 0, 0, NULL) == 0)
+        return -ENODEV;
 
     strncpy (info->type, "cfa779", I2C_NAME_SIZE);
 
