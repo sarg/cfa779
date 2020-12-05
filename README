@@ -1,5 +1,5 @@
 This is kernel module source for CrystalFontz CFA779 device.
-That device can be found on Qualsys firewalls.
+That device can be found on Qualys firewalls.
 
 Module creates control files in sysfs and provides event device so you can read key events from keypad.
 

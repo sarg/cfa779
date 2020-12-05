@@ -58,25 +58,7 @@ MODULE_LICENSE ("GPL");
 
 static const unsigned short normal_i2c[] = { 0x20, I2C_CLIENT_END };
 
-I2C_CLIENT_INSMOD_1 (cfa779);
-
 /* ---------------------------------------------------------------------*/
-
-s32
-i2c_smbus_read_block_data (struct i2c_client *client, u8 command, u8 * values)
-{
-    union i2c_smbus_data data;
-    int i;
-    if (i2c_smbus_xfer (client->adapter, client->addr, client->flags,
-                        I2C_SMBUS_READ, command, I2C_SMBUS_BLOCK_DATA, &data))
-        return -1;
-    else
-      {
-          for (i = 1; i <= data.block[0]; i++)
-              values[i - 1] = data.block[i];
-          return data.block[0];
-      }
-}
 
 /* Each client has this additional data */
 struct cfa779_data
@@ -93,7 +75,7 @@ struct cfa779_data
 static int cfa779_probe (struct i2c_client *client,
                          const struct i2c_device_id *id);
 static int cfa779_remove (struct i2c_client *client);
-static int cfa779_detect (struct i2c_client *client, int kind,
+static int cfa779_detect (struct i2c_client *client,
                           struct i2c_board_info *board_info);
 
 struct i2c_device_id cfa779_idtable[] = {
@@ -114,7 +96,7 @@ static struct i2c_driver cfa779_driver = {
     .probe = cfa779_probe,
     .remove = cfa779_remove,
 
-    .address_data = &addr_data,
+    .address_list = normal_i2c,
     .detect = cfa779_detect
 };
 
@@ -483,7 +465,7 @@ lcd_send_packet (struct i2c_client *client, u8 idx, int len, char *data)
 
 
 static int
-cfa779_detect (struct i2c_client *new_client, int kind,
+cfa779_detect (struct i2c_client *new_client,
                struct i2c_board_info *info)
 {
     struct i2c_adapter *adapter = new_client->adapter;
@@ -493,26 +475,12 @@ cfa779_detect (struct i2c_client *new_client, int kind,
         return -ENODEV;
 
     /*
-     * Now we do the remaining detection. A negative kind means that
-     * the driver was loaded with no force parameter (default), so we
-     * must both detect and identify the chip. A zero kind means that
-     * the driver was loaded with the force parameter, the detection
-     * step shall be skipped. A positive kind means that the driver
-     * was loaded with the force parameter and a given kind of chip is
-     * requested, so both the detection and the identification steps
-     * are skipped.
+     * Now we must both detect and identify the chip.
      */
 
-    if (kind == 0)
-        kind = cfa779;
-
-    if (kind < 0)
-      {                         /* detection and identification */
-          lcd_send_packet (new_client, 0, 0, NULL);
-          if (lcd_check_reply (new_client, 0, 0, NULL) == 0)
-              return -ENODEV;
-          kind = cfa779;
-      }
+    lcd_send_packet (new_client, 0, 0, NULL);
+    if (lcd_check_reply (new_client, 0, 0, NULL) == 0)
+        return -ENODEV;
 
     strncpy (info->type, "cfa779", I2C_NAME_SIZE);
 
